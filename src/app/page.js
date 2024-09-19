@@ -3,8 +3,18 @@
 import { useState, useEffect, useRef } from "react";
 import styles from "./randomwheel.module.css";
 import axios from "axios";
-
-const initialRestaurants = [];
+import "@fontsource/roboto/300.css";
+import "@fontsource/roboto/400.css";
+import "@fontsource/roboto/500.css";
+import "@fontsource/roboto/700.css";
+import {
+  createEntity,
+  deleteEntity,
+  getEntity,
+  onEntityChange,
+  createSpinHistory,
+} from "@/firebase/databaseApi";
+import SpinHistory from "@/components/SpinHistory";
 
 export default function RandomWheel() {
   const canvasRef = useRef(null);
@@ -12,9 +22,12 @@ export default function RandomWheel() {
   const [chosenRestaurant, setChosenRestaurant] = useState("");
   const [isSpinning, setIsSpinning] = useState(false);
   const [showResult, setShowResult] = useState(false);
+  const [linkId, setLinkId] = useState(null);
   const API_KEY = "xYMZRYtUiOGz90R5Lt3z7uAAJWaZb22L3hv4SKWs";
-  const [listSuggestLocation, setListSuggestLocation] = useState();
+  const [listSuggestLocation, setListSuggestLocation] = useState([]);
   const [keyword, setKeyword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const debounce = (func, wait) => {
     let timeout;
@@ -56,42 +69,126 @@ export default function RandomWheel() {
       (restaurants?.length - finalAngle / arc) % restaurants?.length
     );
 
-    setTimeout(() => {
-      setChosenRestaurant(restaurants[selectedIndex]);
+    setTimeout(async () => {
+      const selectedRestaurant = restaurants[selectedIndex];
+      setChosenRestaurant(selectedRestaurant);
       setShowResult(true);
       setIsSpinning(false);
       setTimeout(() => setShowResult(false), 3000);
+
+      // Save spin result to Firebase
+      if (linkId) {
+        await createSpinHistory(linkId, selectedRestaurant);
+      }
     }, 5000);
   };
 
-  const addRestaurant = (value) => () => {
-    const updatedRestaurants = [...restaurants, value];
-    setRestaurants(updatedRestaurants);
-    localStorage.setItem("restaurants", JSON.stringify(updatedRestaurants));
+  const addRestaurant = (value) => async () => {
+    let currentLinkId = linkId;
+
+    try {
+      if (!currentLinkId) {
+        currentLinkId = await createEntity("linkIds", {
+          createdAt: new Date().toISOString(),
+        });
+        setLinkId(currentLinkId);
+        window.history.pushState({}, "", `?linkId=${currentLinkId}`);
+      }
+
+      const updatedRestaurants = [...restaurants, value];
+      setRestaurants(updatedRestaurants);
+
+      await createEntity(`restaurants/${currentLinkId}`, { name: value });
+      console.log("Restaurant saved under linkId:", currentLinkId);
+    } catch (error) {
+      console.error("Error adding restaurant:", error);
+    }
   };
 
-  const deleteRestaurant = (index) => {
+  const deleteRestaurant = async (index) => {
+    setIsDeleting(true);
+    const restaurantToDelete = restaurants[index];
     const updatedRestaurants = restaurants.filter((_, i) => i !== index);
     setRestaurants(updatedRestaurants);
-    localStorage.setItem("restaurants", JSON.stringify(updatedRestaurants));
+
+    try {
+      if (linkId) {
+        const restaurantData = await getEntity(`restaurants/${linkId}`);
+        if (restaurantData) {
+          const restaurantKey = Object.keys(restaurantData).find(
+            (key) => restaurantData[key].name === restaurantToDelete
+          );
+          if (restaurantKey) {
+            await deleteEntity(`restaurants/${linkId}`, restaurantKey);
+            console.log(
+              "Restaurant deleted from Firebase:",
+              restaurantToDelete
+            );
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error deleting restaurant:", error);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const fetchSuggesstLocation = async (keyword) => {
-    const data = await axios.get(
-      `https://rsapi.goong.io/Place/AutoComplete?api_key=${API_KEY}&input=${keyword}`
-    );
-    if (data.status === 200) {
-      setListSuggestLocation(data.data.predictions);
+    setIsLoading(true);
+    try {
+      const data = await axios.get(
+        `https://rsapi.goong.io/Place/AutoComplete?api_key=${API_KEY}&input=${keyword}`
+      );
+      if (data.status === 200) {
+        setListSuggestLocation(data.data.predictions);
+      }
+    } catch (error) {
+      console.error("Error fetching suggestions:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    const savedRestaurants = localStorage.getItem("restaurants");
-    if (savedRestaurants) {
-      setRestaurants(JSON.parse(savedRestaurants));
-    } else {
-      setRestaurants(initialRestaurants);
-      localStorage.setItem("restaurants", JSON.stringify(initialRestaurants));
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentLinkId = urlParams.get("linkId");
+    if (currentLinkId) {
+      setLinkId(currentLinkId);
+      const fetchRestaurants = async () => {
+        setIsLoading(true);
+        try {
+          const restaurantData = await getEntity(
+            `restaurants/${currentLinkId}`
+          );
+          if (restaurantData) {
+            const restaurantList = Object.values(restaurantData).map(
+              (item) => item.name
+            );
+            setRestaurants(restaurantList);
+          }
+        } catch (error) {
+          console.error("Error fetching restaurants:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchRestaurants();
+
+      const unsubscribe = onEntityChange(
+        `restaurants/${currentLinkId}`,
+        (snapshot) => {
+          const restaurantData = snapshot.val();
+          if (restaurantData) {
+            const restaurantList = Object.values(restaurantData).map(
+              (item) => item.name
+            );
+            setRestaurants(restaurantList);
+          }
+        }
+      );
+
+      return () => unsubscribe();
     }
   }, []);
 
@@ -121,9 +218,9 @@ export default function RandomWheel() {
     function drawWheel() {
       const centerX = canvas.width / 2;
       const centerY = canvas.height / 2;
-      const radius = Math.max(Math.min(centerX, centerY) - 10, 0); // Ensure radius is non-negative
+      const radius = Math.max(Math.min(centerX, centerY) - 10, 0);
       const totalRestaurants = restaurants?.length;
-      if (totalRestaurants === 0) return; // Handle case where there are no restaurants
+      if (totalRestaurants === 0) return;
       const arc = (Math.PI * 2) / totalRestaurants;
       for (let i = 0; i < totalRestaurants; i++) {
         const angle = i * arc;
@@ -141,7 +238,7 @@ export default function RandomWheel() {
         ctx.font = "bold 12px Arial";
         ctx.strokeStyle = "white";
         ctx.lineWidth = 3;
-        const maxTextWidth = radius * 0.7; // Adjust this value to change the maximum text width
+        const maxTextWidth = radius * 0.7;
         const truncatedText = truncateText(restaurants[i], maxTextWidth);
 
         ctx.strokeText(truncatedText, radius - 10, 5);
@@ -149,13 +246,14 @@ export default function RandomWheel() {
         ctx.restore();
       }
     }
-  }, [restaurants]); // Add restaurants as a dependency
+  }, [restaurants]);
 
   return (
     <div
-      className={`${styles.body} px-4 md:px-16 lg:px-24 max-xl:flex-col-reverse`}
+      className={`${styles.body} px-4 md:px-16 lg:px-24 max-xl:flex-col-reverse `}
     >
-      {restaurants.length > 0 && (
+      {isLoading && <div className="text-center">Loading restaurants...</div>}
+      {!isLoading && restaurants.length > 0 && (
         <div className="bg-white">
           <p className="text-lg font-semibold border-b border-[#ccc] p-4">
             List restaurants
@@ -171,8 +269,9 @@ export default function RandomWheel() {
                 <button
                   className="px-4 py-2 text-white bg-red-400 rounded-md"
                   onClick={() => deleteRestaurant(index)}
+                  disabled={isDeleting}
                 >
-                  Delete
+                  {isDeleting ? "Deleting..." : "Delete"}
                 </button>
               </div>
             ))}
@@ -186,13 +285,14 @@ export default function RandomWheel() {
         <button
           className={styles.wheelCenter}
           onClick={spinWheel}
+          disabled={isSpinning}
           aria-label="Spin the wheel"
         >
-          SPIN
+          {isSpinning ? "Spinning..." : "SPIN"}
         </button>
       </div>
 
-      <div className="form-add-restaurant">
+      <div className="form-add-restaurant ">
         <input
           placeholder="Search restaurant..."
           onChange={(e) => {
@@ -201,19 +301,26 @@ export default function RandomWheel() {
               fetchSuggesstLocation(e.target.value);
             }, 1000)();
           }}
+          className="w-full"
         />
-        {listSuggestLocation?.length > 0 && keyword.length > 0 && (
-          <div className="list-locations">
-            {listSuggestLocation.map((item, idx) => (
-              <p
-                key={idx}
-                onClick={addRestaurant(item?.structured_formatting?.main_text)}
-              >
-                {item.description}
-              </p>
-            ))}
-          </div>
-        )}
+        {isLoading && <div>Loading suggestions...</div>}
+        {!isLoading &&
+          listSuggestLocation?.length > 0 &&
+          keyword.length > 0 && (
+            <div className="list-locations">
+              {listSuggestLocation.map((item, idx) => (
+                <p
+                  key={idx}
+                  onClick={addRestaurant(
+                    item?.structured_formatting?.main_text
+                  )}
+                >
+                  {item.description}
+                </p>
+              ))}
+            </div>
+          )}
+        {linkId && <SpinHistory linkId={linkId} />}
       </div>
 
       <div
