@@ -3,8 +3,43 @@
 import { useState, useEffect, useRef } from "react";
 import styles from "./randomwheel.module.css";
 import axios from "axios";
+import {
+  FormControlLabel,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  Switch,
+} from "@mui/material";
 
 const initialRestaurants = [];
+const listOfTypesRestaurants = [
+  "Fast Food Restaurants",
+  "Casual Dining Restaurants",
+  "Fine Dining Restaurants",
+  "Cafes",
+  "Bistros",
+  "Pizzerias",
+  "Steakhouses",
+  "Buffet Restaurants",
+  "Food Trucks",
+  "Gastropubs",
+  "Brasseries",
+  "Diners",
+  "Sushi Bars",
+  "Taco Stands",
+  "Ice Cream Parlors",
+  "Barbecue Joints",
+  "Delis (Delicatessens)",
+  "Tea Houses",
+  "Patisseries",
+  "Wine Bars",
+  "Ethnic Restaurants (e.g., Italian, Mexican, Indian)",
+  "Farm-to-Table Restaurants",
+  "Fusion Restaurants",
+  "Pop-up Restaurants",
+  "Bakeries",
+];
 
 export default function RandomWheel() {
   const canvasRef = useRef(null);
@@ -15,6 +50,11 @@ export default function RandomWheel() {
   const API_KEY = "xYMZRYtUiOGz90R5Lt3z7uAAJWaZb22L3hv4SKWs";
   const [listSuggestLocation, setListSuggestLocation] = useState();
   const [keyword, setKeyword] = useState("");
+  const [typeOfRestaurant, setTypeOfRestaurant] = useState("");
+  const [location, setLocation] = useState("");
+  const handleChange = (event) => {
+    setTypeOfRestaurant(event.target.value);
+  };
 
   const debounce = (func, wait) => {
     let timeout;
@@ -77,13 +117,42 @@ export default function RandomWheel() {
   };
 
   const fetchSuggesstLocation = async (keyword) => {
-    const data = await axios.get(
-      `https://rsapi.goong.io/Place/AutoComplete?api_key=${API_KEY}&input=${keyword}`
-    );
+    // const newKeyword = (keyword + " " + typeOfRestaurant).replace(/ /g, "+");
+    // console.log("🚀 ~ fetchSuggesstLocation ~ newKeyword:", newKeyword);
+    let newKeyword;
+    if (typeOfRestaurant && keyword === "") {
+      newKeyword = typeOfRestaurant;
+    } else {
+      newKeyword = keyword;
+    }
+    let url = "";
+    if (!location) {
+      url = `https://rsapi.goong.io/Place/AutoComplete?api_key=${API_KEY}&input=${newKeyword}`;
+    } else {
+      url = `https://rsapi.goong.io/Place/AutoComplete?api_key=${API_KEY}&input=${newKeyword}&location=${location}`;
+    }
+    const data = await axios.get(url);
     if (data.status === 200) {
       setListSuggestLocation(data.data.predictions);
     }
   };
+
+  const getLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        const locationString = `${latitude},${longitude}`;
+        console.log(locationString); // You can use this string as needed
+        setLocation(locationString);
+      });
+    } else {
+      alert("Geolocation is not supported by this browser.");
+    }
+  };
+  useEffect(() => {
+    fetchSuggesstLocation(keyword);
+  }, [location, typeOfRestaurant]);
 
   useEffect(() => {
     const savedRestaurants = localStorage.getItem("restaurants");
@@ -191,7 +260,34 @@ export default function RandomWheel() {
           SPIN
         </button>
       </div>
-
+      <div className="items-center gap-4">
+        <FormControl fullWidth sx={{ mb: 3 }}>
+          <InputLabel id="demo-simple-select-label">Type Restaurant</InputLabel>
+          <Select
+            labelId="demo-simple-select-label"
+            id="demo-simple-select"
+            value={typeOfRestaurant}
+            label="Type Restaurant"
+            onChange={handleChange}
+          >
+            {listOfTypesRestaurants?.map((item, index) => {
+              return (
+                <MenuItem key={index} value={item}>
+                  {item}
+                </MenuItem>
+              );
+            })}
+          </Select>
+        </FormControl>
+        <FormControlLabel
+          sx={{ fontWeight: "Bold" }}
+          value="nearby"
+          control={<Switch color="primary" />}
+          label="Search Nearby"
+          labelPlacement="start"
+          onChange={getLocation}
+        />
+      </div>
       <div className="form-add-restaurant">
         <input
           placeholder="Search restaurant..."
@@ -202,7 +298,7 @@ export default function RandomWheel() {
             }, 1000)();
           }}
         />
-        {listSuggestLocation?.length > 0 && keyword.length > 0 && (
+        {listSuggestLocation?.length > 0 && (
           <div className="list-locations">
             {listSuggestLocation.map((item, idx) => (
               <p
