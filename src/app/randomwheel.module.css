@@ -1,8 +1,6 @@
 .body {
     display: flex;
-    justify-content: space-between;
     min-height: 100vh;
-    padding: 150px;
     margin: 0;
     font-family: Arial, sans-serif;
     background:
@@ -26,6 +24,7 @@
     height: 90vw;
     max-width: 400px;
     max-height: 400px;
+    flex-shrink: 0;
 }
 
 .wheel {

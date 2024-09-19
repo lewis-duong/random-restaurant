@@ -19,6 +19,7 @@ import {
   Tab,
   Button,
   IconButton,
+  Typography,
 } from "@mui/material";
 
 const initialRestaurants = [];
@@ -348,8 +349,10 @@ export default function RandomWheel() {
     });
   };
   return (
-    <div className={`${styles.body} flex-col md:flex-row relative`}>
-      <div className="flex items-center mb-4 absolute top-2 right-2">
+    <div
+      className={`${styles.body} items-center justify-between flex-col lg:flex-row relative md:p-28`}
+    >
+      <div className="flex  md:items-stretch mb-4 absolute top-2 right-2">
         <IconButton
           color="primary"
           onClick={copyToClipboard}
@@ -358,20 +361,30 @@ export default function RandomWheel() {
           <LinkIcon />
         </IconButton>
       </div>
-
-      <div className={`${styles.wheelContainer} `}>
-        <div className={styles.selector}></div>
-        <canvas ref={canvasRef} className={styles.wheel}></canvas>
-        <button
-          className={styles.wheelCenter}
-          onClick={spinWheel}
-          disabled={isSpinning}
-          aria-label="Spin the wheel"
-        >
-          {isSpinning ? "Spinning..." : "SPIN"}
-        </button>
-      </div>
       <div>
+        <Typography
+          variant="h4"
+          sx={{
+            color: "white",
+            marginBottom: 5,
+          }}
+        >
+          Random restaurants wheel
+        </Typography>
+        <div className={`${styles.wheelContainer} `}>
+          <div className={styles.selector}></div>
+          <canvas ref={canvasRef} className={styles.wheel}></canvas>
+          <button
+            className={styles.wheelCenter}
+            onClick={spinWheel}
+            disabled={isSpinning}
+            aria-label="Spin the wheel"
+          >
+            {isSpinning ? "Spinning..." : "SPIN"}
+          </button>
+        </div>
+      </div>
+      <div className="mt-4">
         <div className=" flex-1 px-2">
           <div className="flex min-w-[300px] items-center">
             <FormControl fullWidth sx={{ mb: 3 }}>
