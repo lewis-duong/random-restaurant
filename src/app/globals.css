@@ -32,9 +32,9 @@ body {
 }
 
 .form-add-restaurant input {
-  width: 300px;
   padding: 4px 12px;
   border-radius: 8px;
+  margin-bottom: 10px;
 }
 
 .form-add-restaurant .list-locations{
