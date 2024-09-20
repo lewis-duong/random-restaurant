@@ -35,11 +35,11 @@ const SpinHistory = ({ linkId }) => {
   }, [linkId]);
 
   return (
-    <Card className="w-full max-w-md mx-auto">
+    <Card className="w-full max-w-md mx-auto  h-[200px] overflow-auto">
       <CardHeader>
         <CardTitle>Spin History</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="">
         {spinHistory.length === 0 ? (
           <p className="text-center text-gray-500">No spin history available</p>
         ) : (

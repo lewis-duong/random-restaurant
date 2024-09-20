@@ -20,18 +20,20 @@ import {
   Button,
   IconButton,
   Typography,
+  Paper,
+  Grid,
 } from "@mui/material";
 
-const initialRestaurants = [];
-const listOfTypesRestaurants = [
-  "Fast Food Restaurants",
-  "Casual Dining Restaurants",
-  "Fine Dining Restaurants",
+const initiallocations = [];
+const listOfTypeslocations = [
+  "Fast Food locations",
+  "Casual Dining locations",
+  "Fine Dining locations",
   "Cafes",
   "Bistros",
   "Pizzerias",
   "Steakhouses",
-  "Buffet Restaurants",
+  "Buffet locations",
   "Food Trucks",
   "Gastropubs",
   "Brasseries",
@@ -44,10 +46,10 @@ const listOfTypesRestaurants = [
   "Tea Houses",
   "Patisseries",
   "Wine Bars",
-  "Ethnic Restaurants (e.g., Italian, Mexican, Indian)",
-  "Farm-to-Table Restaurants",
-  "Fusion Restaurants",
-  "Pop-up Restaurants",
+  "Ethnic locations (e.g., Italian, Mexican, Indian)",
+  "Farm-to-Table locations",
+  "Fusion locations",
+  "Pop-up locations",
   "Bakeries",
 ];
 import "@fontsource/roboto/300.css";
@@ -63,21 +65,29 @@ import {
 } from "@/firebase/databaseApi";
 import SpinHistory from "@/components/SpinHistory";
 import { LinkIcon, ShareIcon } from "lucide-react";
+import { ExpandLess, ExpandMore } from "@mui/icons-material";
 
 export default function RandomWheel() {
   const canvasRef = useRef(null);
-  const [restaurants, setRestaurants] = useState([]);
-  const [chosenRestaurant, setChosenRestaurant] = useState("");
+  const [locations, setlocations] = useState([]);
+  const [chosenlocation, setChosenlocation] = useState("");
   const [isSpinning, setIsSpinning] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [linkId, setLinkId] = useState(null);
   const API_KEY = "xYMZRYtUiOGz90R5Lt3z7uAAJWaZb22L3hv4SKWs";
   const [listSuggestLocation, setListSuggestLocation] = useState([]);
   const [keyword, setKeyword] = useState("");
-  const [typeOfRestaurant, setTypeOfRestaurant] = useState("");
+  const [typeOflocation, setTypeOflocation] = useState("");
   const [location, setLocation] = useState("");
+  const [isAdvanced, setIsAdvanced] = useState(false);
+  const [locationInputs, setLocationInputs] = useState([]);
+  const handleChangeLocations = (e) => {
+    const value = e.target.value;
+    const lines = value.split("\n");
+    setLocationInputs(lines);
+  };
   const handleChange = (event) => {
-    setTypeOfRestaurant(event.target.value);
+    setTypeOflocation(event.target.value);
   };
   const listRef = useRef(null);
 
@@ -103,8 +113,8 @@ export default function RandomWheel() {
   }
 
   const spinWheel = () => {
-    if (!restaurants?.length || restaurants?.length < 2) {
-      alert("Please add more restaurants");
+    if (!locations?.length || locations?.length < 2) {
+      alert("Please add more locations");
       return;
     }
 
@@ -113,7 +123,7 @@ export default function RandomWheel() {
 
     const canvas = canvasRef.current;
     const spins = 5 + Math.random() * 5;
-    const arc = (Math.PI * 2) / restaurants?.length;
+    const arc = (Math.PI * 2) / locations?.length;
     const spinAngle = Math.random() * Math.PI * 2;
     const totalRotation = spins * Math.PI * 2 + spinAngle;
 
@@ -121,26 +131,26 @@ export default function RandomWheel() {
 
     const finalAngle = totalRotation % (Math.PI * 2);
     const selectedIndex = Math.floor(
-      (restaurants?.length - finalAngle / arc) % restaurants?.length
+      (locations?.length - finalAngle / arc) % locations?.length
     );
 
     setTimeout(async () => {
-      const selectedRestaurant = restaurants[selectedIndex];
-      setChosenRestaurant(selectedRestaurant);
+      const selectedlocation = locations[selectedIndex];
+      setChosenlocation(selectedlocation);
       setShowResult(true);
       setIsSpinning(false);
       setTimeout(() => setShowResult(false), 3000);
 
       // Save spin result to Firebase
       if (linkId) {
-        await createSpinHistory(linkId, selectedRestaurant);
+        await createSpinHistory(linkId, selectedlocation);
       }
     }, 5000);
   };
 
-  const addRestaurant = (value) => async () => {
+  const addlocation = async (value) => {
+    debugger;
     let currentLinkId = linkId;
-
     try {
       if (!currentLinkId) {
         currentLinkId = await createEntity("linkIds", {
@@ -150,51 +160,69 @@ export default function RandomWheel() {
         window.history.pushState({}, "", `?linkId=${currentLinkId}`);
       }
 
-      const updatedRestaurants = [...restaurants, value];
-      setRestaurants(updatedRestaurants);
+      const updatedlocations = [...locations, value];
+      setlocations(updatedlocations);
 
-      await createEntity(`restaurants/${currentLinkId}`, { name: value });
-      console.log("Restaurant saved under linkId:", currentLinkId);
+      await createEntity(`locations/${currentLinkId}`, { name: value });
+      console.log("location saved under linkId:", currentLinkId);
     } catch (error) {
-      console.error("Error adding restaurant:", error);
+      console.error("Error adding location:", error);
     }
   };
+  const addMultipleLocation = async (values) => {
+    let currentLinkId = linkId;
+    try {
+      if (!currentLinkId) {
+        currentLinkId = await createEntity("linkIds", {
+          createdAt: new Date().toISOString(),
+        });
+        setLinkId(currentLinkId);
+        window.history.pushState({}, "", `?linkId=${currentLinkId}`);
+      }
 
-  const deleteRestaurant = async (index) => {
+      const updatedLocations = [...locations, ...values];
+      setlocations(updatedLocations);
+
+      for (const value of values) {
+        await createEntity(`locations/${currentLinkId}`, { name: value });
+        console.log("Location saved under linkId:", currentLinkId);
+      }
+    } catch (error) {
+      console.error("Error adding locations:", error);
+    }
+  };
+  const deletelocation = async (index) => {
     setIsDeleting(true);
-    const restaurantToDelete = restaurants[index];
-    const updatedRestaurants = restaurants.filter((_, i) => i !== index);
-    setRestaurants(updatedRestaurants);
+    const locationToDelete = locations[index];
+    const updatedlocations = locations.filter((_, i) => i !== index);
+    setlocations(updatedlocations);
 
     try {
       if (linkId) {
-        const restaurantData = await getEntity(`restaurants/${linkId}`);
-        if (restaurantData) {
-          const restaurantKey = Object.keys(restaurantData).find(
-            (key) => restaurantData[key].name === restaurantToDelete
+        const locationData = await getEntity(`locations/${linkId}`);
+        if (locationData) {
+          const locationKey = Object.keys(locationData).find(
+            (key) => locationData[key].name === locationToDelete
           );
-          if (restaurantKey) {
-            await deleteEntity(`restaurants/${linkId}`, restaurantKey);
-            console.log(
-              "Restaurant deleted from Firebase:",
-              restaurantToDelete
-            );
+          if (locationKey) {
+            await deleteEntity(`locations/${linkId}`, locationKey);
+            console.log("location deleted from Firebase:", locationToDelete);
           }
         }
       }
     } catch (error) {
-      console.error("Error deleting restaurant:", error);
+      console.error("Error deleting location:", error);
     } finally {
       setIsDeleting(false);
     }
   };
 
   const fetchSuggesstLocation = async (keyword) => {
-    // const newKeyword = (keyword + " " + typeOfRestaurant).replace(/ /g, "+");
+    // const newKeyword = (keyword + " " + typeOflocation).replace(/ /g, "+");
     // console.log("🚀 ~ fetchSuggesstLocation ~ newKeyword:", newKeyword);
     let newKeyword;
-    if (typeOfRestaurant && keyword === "") {
-      newKeyword = typeOfRestaurant;
+    if (typeOflocation && keyword === "") {
+      newKeyword = typeOflocation;
     } else {
       newKeyword = keyword;
     }
@@ -225,42 +253,40 @@ export default function RandomWheel() {
   };
   useEffect(() => {
     fetchSuggesstLocation(keyword);
-  }, [location, typeOfRestaurant]);
+  }, [location, typeOflocation]);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const currentLinkId = urlParams.get("linkId");
     if (currentLinkId) {
       setLinkId(currentLinkId);
-      const fetchRestaurants = async () => {
+      const fetchlocations = async () => {
         setIsLoading(true);
         try {
-          const restaurantData = await getEntity(
-            `restaurants/${currentLinkId}`
-          );
-          if (restaurantData) {
-            const restaurantList = Object.values(restaurantData).map(
+          const locationData = await getEntity(`locations/${currentLinkId}`);
+          if (locationData) {
+            const locationList = Object.values(locationData).map(
               (item) => item.name
             );
-            setRestaurants(restaurantList);
+            setlocations(locationList);
           }
         } catch (error) {
-          console.error("Error fetching restaurants:", error);
+          console.error("Error fetching locations:", error);
         } finally {
           setIsLoading(false);
         }
       };
-      fetchRestaurants();
+      fetchlocations();
 
       const unsubscribe = onEntityChange(
-        `restaurants/${currentLinkId}`,
+        `locations/${currentLinkId}`,
         (snapshot) => {
-          const restaurantData = snapshot.val();
-          if (restaurantData) {
-            const restaurantList = Object.values(restaurantData).map(
+          const locationData = snapshot.val();
+          if (locationData) {
+            const locationList = Object.values(locationData).map(
               (item) => item.name
             );
-            setRestaurants(restaurantList);
+            setlocations(locationList);
           }
         }
       );
@@ -296,10 +322,10 @@ export default function RandomWheel() {
       const centerX = canvas.width / 2;
       const centerY = canvas.height / 2;
       const radius = Math.max(Math.min(centerX, centerY) - 10, 0);
-      const totalRestaurants = restaurants?.length;
-      if (totalRestaurants === 0) return;
-      const arc = (Math.PI * 2) / totalRestaurants;
-      for (let i = 0; i < totalRestaurants; i++) {
+      const totallocations = locations?.length;
+      if (totallocations === 0) return;
+      const arc = (Math.PI * 2) / totallocations;
+      for (let i = 0; i < totallocations; i++) {
         const angle = i * arc;
         ctx.beginPath();
         ctx.fillStyle = randomHexColor();
@@ -316,14 +342,14 @@ export default function RandomWheel() {
         ctx.strokeStyle = "white";
         ctx.lineWidth = 3;
         const maxTextWidth = radius * 0.7;
-        const truncatedText = truncateText(restaurants[i], maxTextWidth);
+        const truncatedText = truncateText(locations[i], maxTextWidth);
 
         ctx.strokeText(truncatedText, radius - 10, 5);
         ctx.fillText(truncatedText, radius - 10, 5);
         ctx.restore();
       }
     }
-  }, [restaurants]);
+  }, [locations]);
   const handleClickOutside = (event) => {
     if (listRef.current && !listRef.current.contains(event.target)) {
       setListSuggestLocation([]);
@@ -350,7 +376,7 @@ export default function RandomWheel() {
   };
   return (
     <div
-      className={`${styles.body} items-center justify-between flex-col lg:flex-row relative md:p-28`}
+      className={`${styles.body} items-center justify-between flex-col lg:flex-row relative p-4 md:p-16 xl:p-28 max-w-[1280px] mx-auto`}
     >
       <div className="flex  md:items-stretch mb-4 absolute top-2 right-2">
         <IconButton
@@ -365,11 +391,11 @@ export default function RandomWheel() {
         <Typography
           variant="h4"
           sx={{
-            color: "white",
             marginBottom: 5,
+            textAlign: "center",
           }}
         >
-          Random restaurants wheel
+          Random wheel
         </Typography>
         <div className={`${styles.wheelContainer} `}>
           <div className={styles.selector}></div>
@@ -384,62 +410,103 @@ export default function RandomWheel() {
           </button>
         </div>
       </div>
-      <div className="mt-4">
+      <div className="mt-4 w-[343px] md:w-[400px]">
         <div className=" flex-1 px-2">
-          <div className="flex min-w-[300px] items-center">
-            <FormControl fullWidth sx={{ mb: 3 }}>
-              <InputLabel id="demo-simple-select-label">
-                Type Restaurant
-              </InputLabel>
-
-              <Select
-                labelId="demo-simple-select-label"
-                id="demo-simple-select"
-                value={typeOfRestaurant}
-                label="Type Restaurant"
-                onChange={handleChange}
-              >
-                {listOfTypesRestaurants?.map((item, index) => {
-                  return (
-                    <MenuItem key={index} value={item}>
-                      {item}
-                    </MenuItem>
-                  );
-                })}
-              </Select>
-            </FormControl>
-            <FormControlLabel
-              sx={{
-                fontWeight: "bold",
-              }}
-              value="nearby"
-              control={<Switch color="primary" />}
-              label="Nearby"
-              labelPlacement="top"
-              onChange={getLocation}
-            />
-          </div>
-
           <div className="min-w-[300px] ">
-            <div className=" ">
-              <TextField
-                placeholder="Search restaurant..."
-                onChange={(e) => {
-                  setKeyword(e.target.value);
-                  debounce(() => {
-                    fetchSuggesstLocation(e.target.value);
-                  }, 1000)();
-                }}
-                fullWidth
-              />
+            {isAdvanced && (
+              <div className="flex min-w-[300px] items-center">
+                <FormControl fullWidth sx={{ mb: 3 }}>
+                  <InputLabel id="demo-simple-select-label">Type</InputLabel>
+
+                  <Select
+                    labelId="demo-simple-select-label"
+                    id="demo-simple-select"
+                    value={typeOflocation}
+                    label="Type location"
+                    onChange={handleChange}
+                  >
+                    {listOfTypeslocations?.map((item, index) => {
+                      return (
+                        <MenuItem key={index} value={item}>
+                          {item}
+                        </MenuItem>
+                      );
+                    })}
+                  </Select>
+                </FormControl>
+                <FormControlLabel
+                  sx={{
+                    fontWeight: "bold",
+                  }}
+                  value="nearby"
+                  control={<Switch color="primary" />}
+                  label="Nearby"
+                  labelPlacement="top"
+                  onChange={getLocation}
+                />
+                <IconButton
+                  color="primary"
+                  onClick={() => setIsAdvanced(!isAdvanced)}
+                  aria-label="toggle advanced options"
+                >
+                  <ExpandLess />
+                </IconButton>
+              </div>
+            )}
+            {!isAdvanced && (
+              <div className="flex items-center justify-center  mb-4 top-2 right-2">
+                <TextField
+                  label="Add Location"
+                  variant="outlined"
+                  size="small"
+                  value={locationInputs.join("\n")}
+                  onChange={handleChangeLocations}
+                  className="mr-2 flex-1"
+                  multiline
+                  rows={2}
+                />
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => addMultipleLocation(locationInputs)}
+                  className="h-10"
+                >
+                  Add
+                </Button>
+
+                <IconButton
+                  color="primary"
+                  onClick={() => setIsAdvanced(!isAdvanced)}
+                  aria-label="toggle advanced options"
+                >
+                  <ExpandMore />
+                </IconButton>
+              </div>
+            )}
+            <div className=" relative">
+              {isAdvanced && (
+                <TextField
+                  placeholder="Search location..."
+                  onChange={(e) => {
+                    setKeyword(e.target.value);
+                    debounce(() => {
+                      fetchSuggesstLocation(e.target.value);
+                    }, 2000)();
+                  }}
+                  fullWidth
+                />
+              )}
 
               {listSuggestLocation?.length > 0 && (
-                <List ref={listRef}>
+                <List
+                  ref={listRef}
+                  className="absolute left-0 top-[60px] bg-white z-50 border border-gray-200 shadow-md"
+                >
                   {listSuggestLocation.map((item, idx) => (
                     <ListItem
                       button
                       key={idx}
-                      onClick={addRestaurant(
+                      onClick={addlocation(
                         item?.structured_formatting?.main_text
                       )}
                     >
@@ -448,24 +515,6 @@ export default function RandomWheel() {
                   ))}
                 </List>
               )}
-              {isLoading && <div>Loading suggestions...</div>}
-              {/* {!isLoading &&
-                listSuggestLocation?.length > 0 &&
-                keyword.length > 0 && (
-                  <div className="">
-                    {listSuggestLocation.map((item, idx) => (
-                      <p
-                        key={idx}
-                        onClick={addRestaurant(
-                          item?.structured_formatting?.main_text
-                        )}
-                      >
-                        {item.description}
-                      </p>
-                    ))}
-                  </div>
-                )} */}
-              {/* {linkId && <SpinHistory linkId={linkId} />} */}
 
               {linkId && (
                 <Box
@@ -477,41 +526,39 @@ export default function RandomWheel() {
                     maxWidth: 520,
                   }}
                 >
-                  <Tabs value={activeTab} onChange={handleTabChange} centered>
-                    <Tab label="List restaurent" />
-                    <Tab label="History" />
-                  </Tabs>
+                  {locations && locations.length > 0 && (
+                    <Tabs value={activeTab} onChange={handleTabChange} centered>
+                      <Tab label="Random list" />
+                      <Tab label="History" />
+                    </Tabs>
+                  )}
                   {activeTab === 0 && (
-                    <div>
-                      {isLoading && (
-                        <div className="text-center">
-                          Loading restaurants...
-                        </div>
-                      )}
-                      {!isLoading && restaurants.length > 0 && (
-                        <div className="bg-white">
-                          <p className="text-lg font-semibold border-b border-[#ccc] p-4">
-                            List restaurants
-                          </p>
-                          <div className="grid max-h-[50vh] overflow-auto">
-                            {restaurants.map((name, index) => (
-                              <div
+                    <div className="h-[200px] overflow-auto">
+                      {!isLoading && locations.length > 0 && (
+                        <Paper elevation={3} className=" bg-white shadow-none">
+                          <Box className="grid  shadow-none border border-gray-200">
+                            {locations.map((name, index) => (
+                              <Grid
+                                container
                                 key={index}
-                                className="flex items-center justify-between gap-6 p-4 border-b"
+                                alignItems="center"
+                                justifyContent="space-between"
+                                className="gap-6 p-4 border-b"
                               >
-                                <p className="text-sm text-gray-900">{name}</p>
-
-                                <button
-                                  className="px-4 py-2 text-white bg-red-400 rounded-md"
-                                  onClick={() => deleteRestaurant(index)}
+                                <Typography variant="body2" color="textPrimary">
+                                  {name}
+                                </Typography>
+                                <Button
+                                  variant="contained"
+                                  onClick={() => deletelocation(index)}
                                   disabled={isDeleting}
                                 >
                                   {isDeleting ? "Deleting..." : "Delete"}
-                                </button>
-                              </div>
+                                </Button>
+                              </Grid>
                             ))}
-                          </div>
-                        </div>
+                          </Box>
+                        </Paper>
                       )}
                     </div>
                   )}
@@ -534,9 +581,7 @@ export default function RandomWheel() {
               <h1>
                 <span className={styles.resultText}>Let's have</span>
                 <br />
-                <span className={styles.restaurantName}>
-                  {chosenRestaurant}
-                </span>
+                <span className={styles.locationName}>{chosenlocation}</span>
                 <br />
                 <span className={styles.resultText}>tonight!</span>
               </h1>
