@@ -449,7 +449,7 @@ export default function RandomWheel() {
                 </List>
               )}
               {isLoading && <div>Loading suggestions...</div>}
-              {!isLoading &&
+              {/* {!isLoading &&
                 listSuggestLocation?.length > 0 &&
                 keyword.length > 0 && (
                   <div className="">
@@ -464,7 +464,7 @@ export default function RandomWheel() {
                       </p>
                     ))}
                   </div>
-                )}
+                )} */}
               {/* {linkId && <SpinHistory linkId={linkId} />} */}
 
               {linkId && (
