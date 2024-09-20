@@ -424,6 +424,7 @@ export default function RandomWheel() {
                     value={typeOflocation}
                     label="Type location"
                     onChange={handleChange}
+                    disabled={isSpinning}
                   >
                     {listOfTypeslocations?.map((item, index) => {
                       return (
@@ -470,6 +471,7 @@ export default function RandomWheel() {
                   color="primary"
                   onClick={() => addMultipleLocation(locationInputs)}
                   className="h-10"
+                  disabled={isSpinning}
                 >
                   Add
                 </Button>
@@ -494,6 +496,7 @@ export default function RandomWheel() {
                     }, 2000)();
                   }}
                   fullWidth
+                  disabled={isSpinning}
                 />
               )}
 
@@ -551,9 +554,9 @@ export default function RandomWheel() {
                                 <Button
                                   variant="contained"
                                   onClick={() => deletelocation(index)}
-                                  disabled={isDeleting}
+                                  disabled={isDeleting || isSpinning}
                                 >
-                                  {isDeleting ? "Deleting..." : "Delete"}
+                                  Delete
                                 </Button>
                               </Grid>
                             ))}
@@ -572,7 +575,7 @@ export default function RandomWheel() {
             </div>
 
             <div
-              className={`${styles.resultMessage} ${
+              className={` ${styles.resultMessage} ${
                 showResult ? styles.show : ""
               }`}
               role="alert"
