@@ -24,7 +24,7 @@ import {
   Grid,
 } from "@mui/material";
 
-const initiallocations = [];
+const initiallocations = ["Example 1", "Example 2", "Example 3"];
 const listOfTypeslocations = [
   "Fast Food locations",
   "Casual Dining locations",
@@ -252,6 +252,7 @@ export default function RandomWheel() {
     }
   };
   useEffect(() => {
+    setLocationInputs(initiallocations);
     fetchSuggesstLocation(keyword);
   }, [location, typeOflocation]);
 
@@ -464,7 +465,7 @@ export default function RandomWheel() {
                   onChange={handleChangeLocations}
                   className="mr-2 flex-1"
                   multiline
-                  rows={2}
+                  rows={4}
                 />
                 <Button
                   variant="contained"
