@@ -62,6 +62,7 @@ import {
   getEntity,
   onEntityChange,
   createSpinHistory,
+  deleteAllEntities,
 } from "@/firebase/databaseApi";
 import SpinHistory from "@/components/SpinHistory";
 import { LinkIcon, ShareIcon } from "lucide-react";
@@ -191,6 +192,21 @@ export default function RandomWheel() {
       console.error("Error adding locations:", error);
     }
   };
+
+  const deleteAllLocations = async () => {
+    setIsDeleting(true);
+    try {
+      if (linkId) {
+        await deleteAllEntities(`locations/${linkId}`);
+        setlocations([]);
+        console.log("All locations deleted from Firebase");
+      }
+    } catch (error) {
+      console.error("Error deleting all locations:", error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
   const deletelocation = async (index) => {
     setIsDeleting(true);
     const locationToDelete = locations[index];
@@ -218,8 +234,6 @@ export default function RandomWheel() {
   };
 
   const fetchSuggesstLocation = async (keyword) => {
-    // const newKeyword = (keyword + " " + typeOflocation).replace(/ /g, "+");
-    // console.log("🚀 ~ fetchSuggesstLocation ~ newKeyword:", newKeyword);
     let newKeyword;
     if (typeOflocation && keyword === "") {
       newKeyword = typeOflocation;
@@ -471,7 +485,7 @@ export default function RandomWheel() {
                   variant="contained"
                   color="primary"
                   onClick={() => addMultipleLocation(locationInputs)}
-                  className="h-10"
+                  className="h-10 mx-2"
                   disabled={isSpinning}
                 >
                   Add
@@ -540,6 +554,18 @@ export default function RandomWheel() {
                     <div className="h-[200px] overflow-auto">
                       {!isLoading && locations.length > 0 && (
                         <Paper elevation={3} className=" bg-white shadow-none">
+                          <div className="flex justify-end my-2">
+                            <Button
+                              variant="outlined"
+                              disabled={isDeleting || isSpinning}
+                              onClick={deleteAllLocations}
+                              color="error"
+                              size="small"
+                            >
+                              Delete all
+                            </Button>
+                          </div>
+
                           <Box className="grid  shadow-none border border-gray-200">
                             {locations.map((name, index) => (
                               <Grid
@@ -556,6 +582,8 @@ export default function RandomWheel() {
                                   variant="contained"
                                   onClick={() => deletelocation(index)}
                                   disabled={isDeleting || isSpinning}
+                                  color="error"
+                                  size="small"
                                 >
                                   Delete
                                 </Button>

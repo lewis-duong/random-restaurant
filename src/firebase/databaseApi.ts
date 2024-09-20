@@ -21,7 +21,15 @@ export const createEntity = async (path, data) => {
     return null;
   }
 };
-
+export const deleteAllEntities = async (path: string): Promise<void> => {
+  try {
+    const entityRef = ref(database, path);
+    await remove(entityRef);
+    console.log(`All entities at path ${path} deleted successfully`);
+  } catch (error) {
+    console.error(`Error deleting entities at path ${path}:`, error);
+  }
+};
 export const filterData = (data, field, value) => {
   const filteredData = Object.entries(data).filter(([key, obj]) => {
     return obj[field] === value; // Use the 'field' parameter to filter data
