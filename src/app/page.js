@@ -123,7 +123,7 @@ export default function RandomWheel() {
     setIsSpinning(true);
 
     const canvas = canvasRef.current;
-    const spins = 5 + Math.random() * 5;
+    const spins = 5 + Math.random() * 20;
     const arc = (Math.PI * 2) / locations?.length;
     const spinAngle = Math.random() * Math.PI * 2;
     const totalRotation = spins * Math.PI * 2 + spinAngle;
