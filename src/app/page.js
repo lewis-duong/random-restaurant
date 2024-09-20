@@ -506,9 +506,9 @@ export default function RandomWheel() {
                     <ListItem
                       button
                       key={idx}
-                      onClick={addlocation(
-                        item?.structured_formatting?.main_text
-                      )}
+                      onClick={() =>
+                        addlocation(item?.structured_formatting?.main_text)
+                      }
                     >
                       <ListItemText primary={item.description} />
                     </ListItem>
