@@ -67,6 +67,12 @@ import {
 import SpinHistory from "@/components/SpinHistory";
 import { LinkIcon, ShareIcon } from "lucide-react";
 import { ExpandLess, ExpandMore } from "@mui/icons-material";
+import WheelCanvas from "@/components/WheelCanvas";
+import AdvancedFeature from "@/components/AdvancedFeature";
+import NormalFeature from "@/components/NormalFeature";
+import ListSuggestions from "@/components/ListSuggestion";
+import LocationList from "@/components/LocationList";
+import ResultModal from "@/components/ResultModal";
 
 export default function RandomWheel() {
   const canvasRef = useRef(null);
@@ -82,6 +88,8 @@ export default function RandomWheel() {
   const [location, setLocation] = useState("");
   const [isAdvanced, setIsAdvanced] = useState(false);
   const [locationInputs, setLocationInputs] = useState([]);
+  const [spinHistory, setSpinHistory] = useState([]);
+
   const handleChangeLocations = (e) => {
     const value = e.target.value;
     const lines = value.split("\n");
@@ -103,15 +111,6 @@ export default function RandomWheel() {
       timeout = setTimeout(() => func(...args), wait);
     };
   };
-
-  function randomHexColor() {
-    return (
-      "#" +
-      Math.floor(Math.random() * 16777215)
-        .toString(16)
-        .padStart(6, "0")
-    );
-  }
 
   const spinWheel = () => {
     if (!locations?.length || locations?.length < 2) {
@@ -141,8 +140,6 @@ export default function RandomWheel() {
       setShowResult(true);
       setIsSpinning(false);
       setTimeout(() => setShowResult(false), 3000);
-
-      // Save spin result to Firebase
       if (linkId) {
         await createSpinHistory(linkId, selectedlocation);
       }
@@ -311,60 +308,38 @@ export default function RandomWheel() {
   }, []);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    resizeCanvas();
-    drawWheel();
-
-    window.addEventListener("resize", resizeCanvas);
-    return () => window.removeEventListener("resize", resizeCanvas);
-
-    function resizeCanvas() {
-      const container = canvas.parentElement;
-      canvas.width = container.clientWidth;
-      canvas.height = container.clientHeight;
-      drawWheel();
-    }
-    function truncateText(text, maxWidth) {
-      let truncated = text;
-      while (ctx.measureText(truncated).width > maxWidth) {
-        truncated = truncated.slice(0, -1);
+    const fetchSpinHistory = async () => {
+      if (linkId) {
+        const history = await getEntity(`spins/${linkId}`);
+        if (history) {
+          const sortedHistory = Object.entries(history)
+            .map(([key, value]) => ({ id: key, ...value }))
+            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+          setSpinHistory(sortedHistory);
+        }
       }
-      return truncated.length < text.length ? truncated + "..." : truncated;
-    }
+    };
 
-    function drawWheel() {
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      const radius = Math.max(Math.min(centerX, centerY) - 10, 0);
-      const totallocations = locations?.length;
-      if (totallocations === 0) return;
-      const arc = (Math.PI * 2) / totallocations;
-      for (let i = 0; i < totallocations; i++) {
-        const angle = i * arc;
-        ctx.beginPath();
-        ctx.fillStyle = randomHexColor();
-        ctx.moveTo(centerX, centerY);
-        ctx.arc(centerX, centerY, radius, angle, angle + arc);
-        ctx.lineTo(centerX, centerY);
-        ctx.fill();
-        ctx.save();
-        ctx.translate(centerX, centerY);
-        ctx.rotate(angle + arc / 2);
-        ctx.textAlign = "right";
-        ctx.fillStyle = "#333";
-        ctx.font = "bold 12px Arial";
-        ctx.strokeStyle = "white";
-        ctx.lineWidth = 3;
-        const maxTextWidth = radius * 0.7;
-        const truncatedText = truncateText(locations[i], maxTextWidth);
+    fetchSpinHistory();
 
-        ctx.strokeText(truncatedText, radius - 10, 5);
-        ctx.fillText(truncatedText, radius - 10, 5);
-        ctx.restore();
+    const unsubscribe = onEntityChange(`spins/${linkId}`, (snapshot) => {
+      const history = snapshot.val();
+      if (history) {
+        const sortedHistory = Object.entries(history)
+          .map(([key, value]) => ({ id: key, ...value }))
+          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        setSpinHistory(sortedHistory);
+        setChosenlocation(sortedHistory[0].result);
+        setShowResult(true);
+        setTimeout(() => {
+          setShowResult(false);
+        }, 2000);
       }
-    }
-  }, [locations]);
+    });
+
+    return () => unsubscribe();
+  }, [linkId]);
+
   const handleClickOutside = (event) => {
     if (listRef.current && !listRef.current.contains(event.target)) {
       setListSuggestLocation([]);
@@ -414,7 +389,7 @@ export default function RandomWheel() {
         </Typography>
         <div className={`${styles.wheelContainer} `}>
           <div className={styles.selector}></div>
-          <canvas ref={canvasRef} className={styles.wheel}></canvas>
+          <WheelCanvas locations={locations} canvasRef={canvasRef} />
           <button
             className={styles.wheelCenter}
             onClick={spinWheel}
@@ -429,76 +404,26 @@ export default function RandomWheel() {
         <div className=" flex-1 px-2">
           <div className="min-w-[300px] ">
             {isAdvanced && (
-              <div className="flex min-w-[300px] items-center">
-                <FormControl fullWidth sx={{ mb: 3 }}>
-                  <InputLabel id="demo-simple-select-label">Type</InputLabel>
-
-                  <Select
-                    labelId="demo-simple-select-label"
-                    id="demo-simple-select"
-                    value={typeOflocation}
-                    label="Type location"
-                    onChange={handleChange}
-                    disabled={isSpinning}
-                  >
-                    {listOfTypeslocations?.map((item, index) => {
-                      return (
-                        <MenuItem key={index} value={item}>
-                          {item}
-                        </MenuItem>
-                      );
-                    })}
-                  </Select>
-                </FormControl>
-                <FormControlLabel
-                  sx={{
-                    fontWeight: "bold",
-                  }}
-                  value="nearby"
-                  control={<Switch color="primary" />}
-                  label="Nearby"
-                  labelPlacement="top"
-                  onChange={getLocation}
-                />
-                <IconButton
-                  color="primary"
-                  onClick={() => setIsAdvanced(!isAdvanced)}
-                  aria-label="toggle advanced options"
-                >
-                  <ExpandLess />
-                </IconButton>
-              </div>
+              <AdvancedFeature
+                typeOflocation={typeOflocation}
+                handleChange={handleChange}
+                isSpinning={isSpinning}
+                listOfTypeslocations={listOfTypeslocations}
+                setIsAdvanced={setIsAdvanced}
+                isAdvanced={isAdvanced}
+                getLocation={getLocation}
+              />
             )}
             {!isAdvanced && (
-              <div className="flex items-center justify-center  mb-4 top-2 right-2">
-                <TextField
-                  label="Add Location"
-                  variant="outlined"
-                  size="small"
-                  value={locationInputs.join("\n")}
-                  onChange={handleChangeLocations}
-                  className="mr-2 flex-1"
-                  multiline
-                  rows={4}
-                />
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={() => addMultipleLocation(locationInputs)}
-                  className="h-10 mx-2"
-                  disabled={isSpinning}
-                >
-                  Add
-                </Button>
-
-                <IconButton
-                  color="primary"
-                  onClick={() => setIsAdvanced(!isAdvanced)}
-                  aria-label="toggle advanced options"
-                >
-                  <ExpandMore />
-                </IconButton>
-              </div>
+              <NormalFeature
+                addMultipleLocation={addMultipleLocation}
+                handleChangeLocations={handleChangeLocations}
+                isAdvanced={isAdvanced}
+                setIsAdvanced={setIsAdvanced}
+                locationInputs={locationInputs}
+                isSpinning={isSpinning}
+                key={"normal-feature"}
+              />
             )}
             <div className=" relative">
               {isAdvanced && (
@@ -516,22 +441,11 @@ export default function RandomWheel() {
               )}
 
               {listSuggestLocation?.length > 0 && (
-                <List
-                  ref={listRef}
-                  className="absolute left-0 top-[60px] bg-white z-50 border border-gray-200 shadow-md"
-                >
-                  {listSuggestLocation.map((item, idx) => (
-                    <ListItem
-                      button
-                      key={idx}
-                      onClick={() =>
-                        addlocation(item?.structured_formatting?.main_text)
-                      }
-                    >
-                      <ListItemText primary={item.description} />
-                    </ListItem>
-                  ))}
-                </List>
+                <ListSuggestions
+                  addlocation={addlocation}
+                  listRef={listRef}
+                  listSuggestLocation={listSuggestLocation}
+                />
               )}
 
               {linkId && (
@@ -551,73 +465,28 @@ export default function RandomWheel() {
                     </Tabs>
                   )}
                   {activeTab === 0 && (
-                    <div className="h-[200px] overflow-auto">
-                      {!isLoading && locations.length > 0 && (
-                        <Paper elevation={3} className=" bg-white shadow-none">
-                          <div className="flex justify-end my-2">
-                            <Button
-                              variant="outlined"
-                              disabled={isDeleting || isSpinning}
-                              onClick={deleteAllLocations}
-                              color="error"
-                              size="small"
-                            >
-                              Delete all
-                            </Button>
-                          </div>
-
-                          <Box className="grid  shadow-none border border-gray-200">
-                            {locations.map((name, index) => (
-                              <Grid
-                                container
-                                key={index}
-                                alignItems="center"
-                                justifyContent="space-between"
-                                className="gap-6 p-4 border-b"
-                              >
-                                <Typography variant="body2" color="textPrimary">
-                                  {name}
-                                </Typography>
-                                <Button
-                                  variant="contained"
-                                  onClick={() => deletelocation(index)}
-                                  disabled={isDeleting || isSpinning}
-                                  color="error"
-                                  size="small"
-                                >
-                                  Delete
-                                </Button>
-                              </Grid>
-                            ))}
-                          </Box>
-                        </Paper>
-                      )}
-                    </div>
+                    <LocationList
+                      deletelocation={deletelocation}
+                      isDeleting={isDeleting}
+                      isSpinning={isSpinning}
+                      isLoading={isLoading}
+                      locations={locations}
+                      deleteAllLocations={deleteAllLocations}
+                    />
                   )}
                   {activeTab === 1 && (
                     <div>
-                      <SpinHistory linkId={linkId} />
+                      <SpinHistory spinHistory={spinHistory} />
                     </div>
                   )}
                 </Box>
               )}
             </div>
-
-            <div
-              className={` ${styles.resultMessage} ${
-                showResult ? styles.show : ""
-              }`}
-              role="alert"
-              aria-live="polite"
-            >
-              <h1>
-                <span className={styles.resultText}>Let's have</span>
-                <br />
-                <span className={styles.locationName}>{chosenlocation}</span>
-                <br />
-                <span className={styles.resultText}>tonight!</span>
-              </h1>
-            </div>
+            <ResultModal
+              styles={styles}
+              chosenlocation={chosenlocation}
+              showResult={showResult}
+            />
           </div>
         </div>
       </div>
