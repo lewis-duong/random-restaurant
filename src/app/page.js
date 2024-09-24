@@ -3,6 +3,55 @@
 import { useState, useEffect, useRef } from "react";
 import styles from "./randomwheel.module.css";
 import axios from "axios";
+import {
+  FormControlLabel,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  Switch,
+  TextField,
+  List,
+  ListItem,
+  ListItemText,
+  Box,
+  Tabs,
+  Tab,
+  Button,
+  IconButton,
+  Typography,
+  Paper,
+  Grid,
+} from "@mui/material";
+
+const initiallocations = ["Example 1", "Example 2", "Example 3"];
+const listOfTypeslocations = [
+  "Fast Food locations",
+  "Casual Dining locations",
+  "Fine Dining locations",
+  "Cafes",
+  "Bistros",
+  "Pizzerias",
+  "Steakhouses",
+  "Buffet locations",
+  "Food Trucks",
+  "Gastropubs",
+  "Brasseries",
+  "Diners",
+  "Sushi Bars",
+  "Taco Stands",
+  "Ice Cream Parlors",
+  "Barbecue Joints",
+  "Delis (Delicatessens)",
+  "Tea Houses",
+  "Patisseries",
+  "Wine Bars",
+  "Ethnic locations (e.g., Italian, Mexican, Indian)",
+  "Farm-to-Table locations",
+  "Fusion locations",
+  "Pop-up locations",
+  "Bakeries",
+];
 import "@fontsource/roboto/300.css";
 import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/500.css";
@@ -13,19 +62,44 @@ import {
   getEntity,
   onEntityChange,
   createSpinHistory,
+  deleteAllEntities,
 } from "@/firebase/databaseApi";
 import SpinHistory from "@/components/SpinHistory";
+import { LinkIcon, ShareIcon } from "lucide-react";
+import { ExpandLess, ExpandMore } from "@mui/icons-material";
+import WheelCanvas from "@/components/WheelCanvas";
+import AdvancedFeature from "@/components/AdvancedFeature";
+import NormalFeature from "@/components/NormalFeature";
+import ListSuggestions from "@/components/ListSuggestion";
+import LocationList from "@/components/LocationList";
+import ResultModal from "@/components/ResultModal";
 
 export default function RandomWheel() {
   const canvasRef = useRef(null);
-  const [restaurants, setRestaurants] = useState([]);
-  const [chosenRestaurant, setChosenRestaurant] = useState("");
+  const [locations, setlocations] = useState([]);
+  const [chosenlocation, setChosenlocation] = useState("");
   const [isSpinning, setIsSpinning] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [linkId, setLinkId] = useState(null);
   const API_KEY = "xYMZRYtUiOGz90R5Lt3z7uAAJWaZb22L3hv4SKWs";
   const [listSuggestLocation, setListSuggestLocation] = useState([]);
   const [keyword, setKeyword] = useState("");
+  const [typeOflocation, setTypeOflocation] = useState("");
+  const [location, setLocation] = useState("");
+  const [isAdvanced, setIsAdvanced] = useState(false);
+  const [locationInputs, setLocationInputs] = useState([]);
+  const [spinHistory, setSpinHistory] = useState([]);
+
+  const handleChangeLocations = (e) => {
+    const value = e.target.value;
+    const lines = value.split("\n");
+    setLocationInputs(lines);
+  };
+  const handleChange = (event) => {
+    setTypeOflocation(event.target.value);
+  };
+  const listRef = useRef(null);
+
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -38,18 +112,9 @@ export default function RandomWheel() {
     };
   };
 
-  function randomHexColor() {
-    return (
-      "#" +
-      Math.floor(Math.random() * 16777215)
-        .toString(16)
-        .padStart(6, "0")
-    );
-  }
-
   const spinWheel = () => {
-    if (!restaurants?.length || restaurants?.length < 2) {
-      alert("Please add more restaurants");
+    if (!locations?.length || locations?.length < 2) {
+      alert("Please add more locations");
       return;
     }
 
@@ -57,8 +122,8 @@ export default function RandomWheel() {
     setIsSpinning(true);
 
     const canvas = canvasRef.current;
-    const spins = 5 + Math.random() * 5;
-    const arc = (Math.PI * 2) / restaurants?.length;
+    const spins = 5 + Math.random() * 20;
+    const arc = (Math.PI * 2) / locations?.length;
     const spinAngle = Math.random() * Math.PI * 2;
     const totalRotation = spins * Math.PI * 2 + spinAngle;
 
@@ -66,26 +131,24 @@ export default function RandomWheel() {
 
     const finalAngle = totalRotation % (Math.PI * 2);
     const selectedIndex = Math.floor(
-      (restaurants?.length - finalAngle / arc) % restaurants?.length
+      (locations?.length - finalAngle / arc) % locations?.length
     );
 
     setTimeout(async () => {
-      const selectedRestaurant = restaurants[selectedIndex];
-      setChosenRestaurant(selectedRestaurant);
+      const selectedlocation = locations[selectedIndex];
+      setChosenlocation(selectedlocation);
       setShowResult(true);
       setIsSpinning(false);
       setTimeout(() => setShowResult(false), 3000);
-
-      // Save spin result to Firebase
       if (linkId) {
-        await createSpinHistory(linkId, selectedRestaurant);
+        await createSpinHistory(linkId, selectedlocation);
       }
     }, 5000);
   };
 
-  const addRestaurant = (value) => async () => {
+  const addlocation = async (value) => {
+    debugger;
     let currentLinkId = linkId;
-
     try {
       if (!currentLinkId) {
         currentLinkId = await createEntity("linkIds", {
@@ -95,95 +158,147 @@ export default function RandomWheel() {
         window.history.pushState({}, "", `?linkId=${currentLinkId}`);
       }
 
-      const updatedRestaurants = [...restaurants, value];
-      setRestaurants(updatedRestaurants);
+      const updatedlocations = [...locations, value];
+      setlocations(updatedlocations);
 
-      await createEntity(`restaurants/${currentLinkId}`, { name: value });
-      console.log("Restaurant saved under linkId:", currentLinkId);
+      await createEntity(`locations/${currentLinkId}`, { name: value });
+      console.log("location saved under linkId:", currentLinkId);
     } catch (error) {
-      console.error("Error adding restaurant:", error);
+      console.error("Error adding location:", error);
+    }
+  };
+  const addMultipleLocation = async (values) => {
+    let currentLinkId = linkId;
+    try {
+      if (!currentLinkId) {
+        currentLinkId = await createEntity("linkIds", {
+          createdAt: new Date().toISOString(),
+        });
+        setLinkId(currentLinkId);
+        window.history.pushState({}, "", `?linkId=${currentLinkId}`);
+      }
+
+      const updatedLocations = [...locations, ...values];
+      setlocations(updatedLocations);
+
+      for (const value of values) {
+        await createEntity(`locations/${currentLinkId}`, { name: value });
+        console.log("Location saved under linkId:", currentLinkId);
+      }
+    } catch (error) {
+      console.error("Error adding locations:", error);
     }
   };
 
-  const deleteRestaurant = async (index) => {
+  const deleteAllLocations = async () => {
     setIsDeleting(true);
-    const restaurantToDelete = restaurants[index];
-    const updatedRestaurants = restaurants.filter((_, i) => i !== index);
-    setRestaurants(updatedRestaurants);
+    try {
+      if (linkId) {
+        await deleteAllEntities(`locations/${linkId}`);
+        setlocations([]);
+        console.log("All locations deleted from Firebase");
+      }
+    } catch (error) {
+      console.error("Error deleting all locations:", error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+  const deletelocation = async (index) => {
+    setIsDeleting(true);
+    const locationToDelete = locations[index];
+    const updatedlocations = locations.filter((_, i) => i !== index);
+    setlocations(updatedlocations);
 
     try {
       if (linkId) {
-        const restaurantData = await getEntity(`restaurants/${linkId}`);
-        if (restaurantData) {
-          const restaurantKey = Object.keys(restaurantData).find(
-            (key) => restaurantData[key].name === restaurantToDelete
+        const locationData = await getEntity(`locations/${linkId}`);
+        if (locationData) {
+          const locationKey = Object.keys(locationData).find(
+            (key) => locationData[key].name === locationToDelete
           );
-          if (restaurantKey) {
-            await deleteEntity(`restaurants/${linkId}`, restaurantKey);
-            console.log(
-              "Restaurant deleted from Firebase:",
-              restaurantToDelete
-            );
+          if (locationKey) {
+            await deleteEntity(`locations/${linkId}`, locationKey);
+            console.log("location deleted from Firebase:", locationToDelete);
           }
         }
       }
     } catch (error) {
-      console.error("Error deleting restaurant:", error);
+      console.error("Error deleting location:", error);
     } finally {
       setIsDeleting(false);
     }
   };
 
   const fetchSuggesstLocation = async (keyword) => {
-    setIsLoading(true);
-    try {
-      const data = await axios.get(
-        `https://rsapi.goong.io/Place/AutoComplete?api_key=${API_KEY}&input=${keyword}`
-      );
-      if (data.status === 200) {
-        setListSuggestLocation(data.data.predictions);
-      }
-    } catch (error) {
-      console.error("Error fetching suggestions:", error);
-    } finally {
-      setIsLoading(false);
+    let newKeyword;
+    if (typeOflocation && keyword === "") {
+      newKeyword = typeOflocation;
+    } else {
+      newKeyword = keyword;
+    }
+    let url = "";
+    if (!location) {
+      url = `https://rsapi.goong.io/Place/AutoComplete?api_key=${API_KEY}&input=${newKeyword}`;
+    } else {
+      url = `https://rsapi.goong.io/Place/AutoComplete?api_key=${API_KEY}&input=${newKeyword}&location=${location}`;
+    }
+    const data = await axios.get(url);
+    if (data.status === 200) {
+      setListSuggestLocation(data.data.predictions);
     }
   };
+
+  const getLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        const locationString = `${latitude},${longitude}`;
+        console.log(locationString); // You can use this string as needed
+        setLocation(locationString);
+      });
+    } else {
+      alert("Geolocation is not supported by this browser.");
+    }
+  };
+  useEffect(() => {
+    setLocationInputs(initiallocations);
+    fetchSuggesstLocation(keyword);
+  }, [location, typeOflocation]);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const currentLinkId = urlParams.get("linkId");
     if (currentLinkId) {
       setLinkId(currentLinkId);
-      const fetchRestaurants = async () => {
+      const fetchlocations = async () => {
         setIsLoading(true);
         try {
-          const restaurantData = await getEntity(
-            `restaurants/${currentLinkId}`
-          );
-          if (restaurantData) {
-            const restaurantList = Object.values(restaurantData).map(
+          const locationData = await getEntity(`locations/${currentLinkId}`);
+          if (locationData) {
+            const locationList = Object.values(locationData).map(
               (item) => item.name
             );
-            setRestaurants(restaurantList);
+            setlocations(locationList);
           }
         } catch (error) {
-          console.error("Error fetching restaurants:", error);
+          console.error("Error fetching locations:", error);
         } finally {
           setIsLoading(false);
         }
       };
-      fetchRestaurants();
+      fetchlocations();
 
       const unsubscribe = onEntityChange(
-        `restaurants/${currentLinkId}`,
+        `locations/${currentLinkId}`,
         (snapshot) => {
-          const restaurantData = snapshot.val();
-          if (restaurantData) {
-            const restaurantList = Object.values(restaurantData).map(
+          const locationData = snapshot.val();
+          if (locationData) {
+            const locationList = Object.values(locationData).map(
               (item) => item.name
             );
-            setRestaurants(restaurantList);
+            setlocations(locationList);
           }
         }
       );
@@ -193,148 +308,187 @@ export default function RandomWheel() {
   }, []);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    resizeCanvas();
-    drawWheel();
-
-    window.addEventListener("resize", resizeCanvas);
-    return () => window.removeEventListener("resize", resizeCanvas);
-
-    function resizeCanvas() {
-      const container = canvas.parentElement;
-      canvas.width = container.clientWidth;
-      canvas.height = container.clientHeight;
-      drawWheel();
-    }
-    function truncateText(text, maxWidth) {
-      let truncated = text;
-      while (ctx.measureText(truncated).width > maxWidth) {
-        truncated = truncated.slice(0, -1);
+    const fetchSpinHistory = async () => {
+      if (linkId) {
+        const history = await getEntity(`spins/${linkId}`);
+        if (history) {
+          const sortedHistory = Object.entries(history)
+            .map(([key, value]) => ({ id: key, ...value }))
+            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+          setSpinHistory(sortedHistory);
+        }
       }
-      return truncated.length < text.length ? truncated + "..." : truncated;
-    }
+    };
 
-    function drawWheel() {
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      const radius = Math.max(Math.min(centerX, centerY) - 10, 0);
-      const totalRestaurants = restaurants?.length;
-      if (totalRestaurants === 0) return;
-      const arc = (Math.PI * 2) / totalRestaurants;
-      for (let i = 0; i < totalRestaurants; i++) {
-        const angle = i * arc;
-        ctx.beginPath();
-        ctx.fillStyle = randomHexColor();
-        ctx.moveTo(centerX, centerY);
-        ctx.arc(centerX, centerY, radius, angle, angle + arc);
-        ctx.lineTo(centerX, centerY);
-        ctx.fill();
-        ctx.save();
-        ctx.translate(centerX, centerY);
-        ctx.rotate(angle + arc / 2);
-        ctx.textAlign = "right";
-        ctx.fillStyle = "#333";
-        ctx.font = "bold 12px Arial";
-        ctx.strokeStyle = "white";
-        ctx.lineWidth = 3;
-        const maxTextWidth = radius * 0.7;
-        const truncatedText = truncateText(restaurants[i], maxTextWidth);
+    fetchSpinHistory();
 
-        ctx.strokeText(truncatedText, radius - 10, 5);
-        ctx.fillText(truncatedText, radius - 10, 5);
-        ctx.restore();
+    const unsubscribe = onEntityChange(`spins/${linkId}`, (snapshot) => {
+      const history = snapshot.val();
+      if (history) {
+        const sortedHistory = Object.entries(history)
+          .map(([key, value]) => ({ id: key, ...value }))
+          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        setSpinHistory(sortedHistory);
+        setChosenlocation(sortedHistory[0].result);
+        setShowResult(true);
+        setTimeout(() => {
+          setShowResult(false);
+        }, 2000);
       }
-    }
-  }, [restaurants]);
+    });
 
+    return () => unsubscribe();
+  }, [linkId]);
+
+  const handleClickOutside = (event) => {
+    if (listRef.current && !listRef.current.contains(event.target)) {
+      setListSuggestLocation([]);
+    }
+  };
+
+  useEffect(() => {
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+  const [activeTab, setActiveTab] = useState(0);
+
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+
+  const copyToClipboard = () => {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(() => {
+      alert("URL copied to clipboard!");
+    });
+  };
   return (
     <div
-      className={`${styles.body} px-4 md:px-16 lg:px-24 max-xl:flex-col-reverse `}
+      className={`${styles.body} items-center justify-between flex-col lg:flex-row relative p-4 md:p-16 xl:p-28 max-w-[1280px] mx-auto`}
     >
-      {isLoading && <div className="text-center">Loading restaurants...</div>}
-      {!isLoading && restaurants.length > 0 && (
-        <div className="bg-white">
-          <p className="text-lg font-semibold border-b border-[#ccc] p-4">
-            List restaurants
-          </p>
-          <div className="grid max-h-[50vh] overflow-auto">
-            {restaurants.map((name, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between gap-6 p-4 border-b"
-              >
-                <p className="text-sm text-gray-900">{name}</p>
+      <div className="flex  md:items-stretch mb-4 absolute top-2 right-2">
+        <IconButton
+          color="primary"
+          onClick={copyToClipboard}
+          aria-label="share"
+        >
+          <LinkIcon />
+        </IconButton>
+      </div>
+      <div>
+        <Typography
+          variant="h4"
+          sx={{
+            marginBottom: 5,
+            textAlign: "center",
+          }}
+        >
+          Random wheel
+        </Typography>
+        <div className={`${styles.wheelContainer} `}>
+          <div className={styles.selector}></div>
+          <WheelCanvas locations={locations} canvasRef={canvasRef} />
+          <button
+            className={styles.wheelCenter}
+            onClick={spinWheel}
+            disabled={isSpinning}
+            aria-label="Spin the wheel"
+          >
+            {isSpinning ? "Spinning..." : "SPIN"}
+          </button>
+        </div>
+      </div>
+      <div className="mt-4 w-[343px] md:w-[400px]">
+        <div className=" flex-1 px-2">
+          <div className="min-w-[300px] ">
+            {isAdvanced && (
+              <AdvancedFeature
+                typeOflocation={typeOflocation}
+                handleChange={handleChange}
+                isSpinning={isSpinning}
+                listOfTypeslocations={listOfTypeslocations}
+                setIsAdvanced={setIsAdvanced}
+                isAdvanced={isAdvanced}
+                getLocation={getLocation}
+              />
+            )}
+            {!isAdvanced && (
+              <NormalFeature
+                addMultipleLocation={addMultipleLocation}
+                handleChangeLocations={handleChangeLocations}
+                isAdvanced={isAdvanced}
+                setIsAdvanced={setIsAdvanced}
+                locationInputs={locationInputs}
+                isSpinning={isSpinning}
+                key={"normal-feature"}
+              />
+            )}
+            <div className=" relative">
+              {isAdvanced && (
+                <TextField
+                  placeholder="Search location..."
+                  onChange={(e) => {
+                    setKeyword(e.target.value);
+                    debounce(() => {
+                      fetchSuggesstLocation(e.target.value);
+                    }, 2000)();
+                  }}
+                  fullWidth
+                  disabled={isSpinning}
+                />
+              )}
 
-                <button
-                  className="px-4 py-2 text-white bg-red-400 rounded-md"
-                  onClick={() => deleteRestaurant(index)}
-                  disabled={isDeleting}
+              {listSuggestLocation?.length > 0 && (
+                <ListSuggestions
+                  addlocation={addlocation}
+                  listRef={listRef}
+                  listSuggestLocation={listSuggestLocation}
+                />
+              )}
+
+              {linkId && (
+                <Box
+                  sx={{
+                    width: "100%",
+                    bgcolor: "background.paper",
+                    marginTop: 2,
+                    borderRadius: 2,
+                    maxWidth: 520,
+                  }}
                 >
-                  {isDeleting ? "Deleting..." : "Delete"}
-                </button>
-              </div>
-            ))}
+                  {locations && locations.length > 0 && (
+                    <Tabs value={activeTab} onChange={handleTabChange} centered>
+                      <Tab label="Random list" />
+                      <Tab label="History" />
+                    </Tabs>
+                  )}
+                  {activeTab === 0 && (
+                    <LocationList
+                      deletelocation={deletelocation}
+                      isDeleting={isDeleting}
+                      isSpinning={isSpinning}
+                      isLoading={isLoading}
+                      locations={locations}
+                      deleteAllLocations={deleteAllLocations}
+                    />
+                  )}
+                  {activeTab === 1 && (
+                    <div>
+                      <SpinHistory spinHistory={spinHistory} />
+                    </div>
+                  )}
+                </Box>
+              )}
+            </div>
+            <ResultModal
+              styles={styles}
+              chosenlocation={chosenlocation}
+              showResult={showResult}
+            />
           </div>
         </div>
-      )}
-
-      <div className={`${styles.wheelContainer} shrink-0`}>
-        <div className={styles.selector}></div>
-        <canvas ref={canvasRef} className={styles.wheel}></canvas>
-        <button
-          className={styles.wheelCenter}
-          onClick={spinWheel}
-          disabled={isSpinning}
-          aria-label="Spin the wheel"
-        >
-          {isSpinning ? "Spinning..." : "SPIN"}
-        </button>
-      </div>
-
-      <div className="form-add-restaurant ">
-        <input
-          placeholder="Search restaurant..."
-          onChange={(e) => {
-            setKeyword(e.target.value);
-            debounce(() => {
-              fetchSuggesstLocation(e.target.value);
-            }, 1000)();
-          }}
-          className="w-full"
-        />
-        {isLoading && <div>Loading suggestions...</div>}
-        {!isLoading &&
-          listSuggestLocation?.length > 0 &&
-          keyword.length > 0 && (
-            <div className="list-locations">
-              {listSuggestLocation.map((item, idx) => (
-                <p
-                  key={idx}
-                  onClick={addRestaurant(
-                    item?.structured_formatting?.main_text
-                  )}
-                >
-                  {item.description}
-                </p>
-              ))}
-            </div>
-          )}
-        {linkId && <SpinHistory linkId={linkId} />}
-      </div>
-
-      <div
-        className={`${styles.resultMessage} ${showResult ? styles.show : ""}`}
-        role="alert"
-        aria-live="polite"
-      >
-        <h1>
-          <span className={styles.resultText}>Let's have</span>
-          <br />
-          <span className={styles.restaurantName}>{chosenRestaurant}</span>
-          <br />
-          <span className={styles.resultText}>tonight!</span>
-        </h1>
       </div>
     </div>
   );
